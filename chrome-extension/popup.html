@@ -8,14 +8,32 @@
 <body>
   <div class="header">
     <h1>🔄 e-EMR Auto-Sync</h1>
-    <span class="badge">v1.0</span>
+    <span class="badge">v1.1</span>
   </div>
 
-  <!-- Paste Data -->
+  <!-- Input Data -->
   <div class="section">
-    <label for="pasteData">📋 Copy-Paste Data dari Google Sheet</label>
-    <textarea id="pasteData" rows="5" placeholder="Blok cell di Sheet (termasuk header) → Ctrl+C → paste di sini"></textarea>
-    <div class="hint">Tips: Blok header + data → Ctrl+C → Ctrl+V di kotak ini. Tidak perlu API Key!</div>
+    <label>📋 Masukkan Data Jobdesk</label>
+    <div class="tab-bar">
+      <button class="tab active" data-tab="paste">Paste</button>
+      <button class="tab" data-tab="file">Upload File</button>
+    </div>
+
+    <!-- Tab: Paste -->
+    <div id="tab-paste" class="tab-content active">
+      <textarea id="pasteData" rows="5" placeholder="Blok cell di Sheet (termasuk header) → Ctrl+C → paste di sini"></textarea>
+      <div class="hint">Blok header + data di Google Sheet, lalu Ctrl+C → Ctrl+V di sini.</div>
+    </div>
+
+    <!-- Tab: Upload File -->
+    <div id="tab-file" class="tab-content">
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-zone-icon">📁</div>
+        <div class="drop-zone-text">Drag & drop file CSV / TSV<br>atau klik untuk pilih file</div>
+        <input type="file" id="fileInput" accept=".csv,.tsv,.txt" hidden>
+      </div>
+      <div id="fileInfo" class="file-info" style="display:none;"></div>
+    </div>
   </div>
 
   <!-- Filter -->

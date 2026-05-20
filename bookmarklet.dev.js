@@ -8,18 +8,19 @@
  * 2. (Opsional) Copy-paste isi config.js ke Console browser dulu.
  * 3. Copy-paste seluruh kode ini ke Console browser, lalu tekan Enter.
  * 4. Panel "e-EMR Auto-Sync" akan muncul di pojok kanan atas.
- * 5. Pilih salah satu mode:
- *    a) Mode API    : isi URL Google Sheet + API Key
- *    b) Mode Paste  : copy-paste data langsung dari Sheet (tanpa API Key!)
+ * 5. Pilih salah satu mode input:
+ *    a) Paste      : copy-paste data langsung dari Sheet
+ *    b) Upload File : upload file CSV/TSV yang diunduh dari Drive
+ *    c) API (opsional): isi URL Google Sheet + API Key
  * 6. Klik "Mulai Sync".
  *
  * Catatan teknis untuk tim IT RS:
  * - Kode ini murni JavaScript ES6+, tanpa library eksternal.
- * - Mode API    : Fetch API → Google Sheets API v4 (read-only).
  * - Mode Paste  : Parse TSV/CSV hasil copy-paste langsung dari Google Sheet.
+ * - Mode Upload : Parse file CSV/TSV yang diunduh dari Google Drive.
+ * - Mode API    : Fetch API → Google Sheets API v4 (read-only).
  * - Mengisi form dengan memicu event 'input', 'change', 'blur' agar
  *   framework frontend (React/Vue/Angular) di e-EMR ikut mendeteksi.
- * - Delay antar submit bisa diatur via config.js (default 1.5 detik).
  * ============================================================================
  */
 
@@ -46,6 +47,7 @@
   // ========================== STATE GLOBAL ==========================
   let isRunning = false;
   let shouldStop = false;
+  let fileRows = null; // Data yang diparse dari file upload
 
   // ========================== UTILITAS ==========================
 
@@ -79,53 +81,40 @@
   }
 
   /**
-   * Parse data hasil copy-paste dari Google Sheet.
-   * Google Sheet secara default copy sebagai TSV (tab-separated).
-   * Kita deteksi delimiter otomatis (tab atau koma).
+   * Parse data teks (hasil copy-paste ATAU isi file CSV/TSV).
+   * Deteksi delimiter otomatis: tab atau koma.
    */
-  function parsePastedData(rawText) {
+  function parseData(rawText) {
     const trimmed = rawText.trim();
-    if (!trimmed) throw new Error('Data paste kosong.');
+    if (!trimmed) throw new Error('Data kosong.');
 
     const lines = trimmed.split(/\r?\n/);
     if (lines.length < 2) {
-      throw new Error('Data paste kurang dari 2 baris (butuh header + minimal 1 baris data).');
+      throw new Error('Data kurang dari 2 baris (butuh header + minimal 1 baris data).');
     }
 
-    // Deteksi delimiter: cek apakah ada tab di salah satu baris
     const hasTab = lines.some((l) => l.includes('\t'));
     const delimiter = hasTab ? '\t' : ',';
 
-    const rows = lines.map((line) => {
+    return lines.map((line) => {
       if (delimiter === ',') {
-        // Parser CSV sederhana dengan support quoted fields
         const result = [];
         let cur = '';
         let inQuotes = false;
         for (let i = 0; i < line.length; i++) {
           const ch = line[i];
           if (ch === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-              cur += '"';
-              i++; // skip escaped quote
-            } else {
-              inQuotes = !inQuotes;
-            }
+            if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+            else { inQuotes = !inQuotes; }
           } else if (ch === ',' && !inQuotes) {
-            result.push(cur.trim());
-            cur = '';
-          } else {
-            cur += ch;
-          }
+            result.push(cur.trim()); cur = '';
+          } else { cur += ch; }
         }
         result.push(cur.trim());
         return result;
       }
-      // TSV mode
       return line.split('\t').map((s) => s.trim());
     });
-
-    return rows; // Array of arrays, sama format dengan response Sheets API
   }
 
   function log(msg, type) {
@@ -227,36 +216,19 @@
     const panel = document.createElement('div');
     panel.id = 'emr-sync-panel';
     panel.style.cssText = [
-      'position:fixed',
-      'top:12px',
-      'right:12px',
-      'width:400px',
-      'max-height:94vh',
-      'background:#ffffff',
-      'border:2px solid #0d6efd',
-      'border-radius:10px',
-      'box-shadow:0 8px 24px rgba(0,0,0,0.35)',
-      'z-index:2147483647',
+      'position:fixed', 'top:12px', 'right:12px', 'width:400px', 'max-height:94vh',
+      'background:#ffffff', 'border:2px solid #0d6efd', 'border-radius:10px',
+      'box-shadow:0 8px 24px rgba(0,0,0,0.35)', 'z-index:2147483647',
       'font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif',
-      'font-size:13px',
-      'color:#212529',
-      'display:flex',
-      'flex-direction:column',
-      'overflow:hidden',
+      'font-size:13px', 'color:#212529', 'display:flex', 'flex-direction:column', 'overflow:hidden',
     ].join(';');
 
     const header = document.createElement('div');
     header.id = 'emr-sync-header';
     header.style.cssText = [
-      'background:#0d6efd',
-      'color:#fff',
-      'padding:10px 14px',
-      'cursor:move',
-      'display:flex',
-      'justify-content:space-between',
-      'align-items:center',
-      'font-weight:600',
-      'user-select:none',
+      'background:#0d6efd', 'color:#fff', 'padding:10px 14px', 'cursor:move',
+      'display:flex', 'justify-content:space-between', 'align-items:center',
+      'font-weight:600', 'user-select:none',
     ].join(';');
     header.innerHTML = '<span>🔄 e-EMR Auto-Sync</span><span id="emr-sync-minimize" style="cursor:pointer;font-size:16px;">−</span>';
 
@@ -265,43 +237,72 @@
     body.style.cssText = 'padding:12px;overflow-y:auto;flex:1;';
 
     body.innerHTML = `
-      <div style="margin-bottom:10px;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">🔗 URL / ID Google Sheet (mode API)</label>
-        <input id="emr-in-sheet" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"
-          style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
-        <div style="font-size:11px;color:#6c757d;margin-top:2px;">Kosongkan jika menggunakan mode copy-paste di bawah.</div>
+      <!-- Tab buttons -->
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <button id="emr-tab-paste" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#0d6efd;color:#fff;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">📋 Paste</button>
+        <button id="emr-tab-file" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">📁 Upload File</button>
+        <button id="emr-tab-api" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">🔗 API (opsional)</button>
       </div>
-      <div style="margin-bottom:10px;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">📄 Nama Range (mode API)</label>
-        <input id="emr-in-range" type="text" value="Sheet1!A1:E100" autocomplete="off"
-          style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
-      </div>
-      <div style="margin-bottom:10px;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">📋 ATAU Paste Data Langsung dari Sheet (mode tanpa API)</label>
-        <textarea id="emr-in-paste" rows="5" placeholder="Copy cell dari Google Sheet lalu paste di sini (Ctrl+V)..."
+
+      <!-- Tab: Paste -->
+      <div id="emr-content-paste" style="margin-bottom:10px;">
+        <label style="display:block;margin-bottom:3px;font-weight:600;">📋 Paste Data dari Google Sheet</label>
+        <textarea id="emr-in-paste" rows="4" placeholder="Blok cell di Sheet (termasuk header) → Ctrl+C → paste di sini"
           style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;resize:vertical;"></textarea>
-        <div style="font-size:11px;color:#6c757d;margin-top:2px;">Tips: Blok cell di Sheet → Ctrl+C → klik kotak ini → Ctrl+V.</div>
+        <div style="font-size:11px;color:#6c757d;margin-top:2px;">Tips: Blok header + data di Sheet → Ctrl+C → Ctrl+V di sini.</div>
       </div>
+
+      <!-- Tab: Upload File -->
+      <div id="emr-content-file" style="margin-bottom:10px;display:none;">
+        <label style="display:block;margin-bottom:3px;font-weight:600;">📁 Upload File CSV / TSV</label>
+        <div id="emr-drop-zone" style="border:2px dashed #adb5bd;border-radius:8px;padding:18px 10px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;">
+          <div style="font-size:28px;margin-bottom:4px;">📁</div>
+          <div style="font-size:12px;color:#6c757d;line-height:1.4;">Drag &amp; drop file CSV/TSV di sini<br>atau klik untuk pilih file</div>
+          <input type="file" id="emr-file-input" accept=".csv,.tsv,.txt" style="display:none;">
+        </div>
+        <div id="emr-file-info" style="display:none;margin-top:6px;padding:6px 10px;background:#d1fae5;border:1px solid #34d399;border-radius:5px;font-size:12px;color:#065f46;"></div>
+      </div>
+
+      <!-- Tab: API -->
+      <div id="emr-content-api" style="margin-bottom:10px;display:none;">
+        <div style="margin-bottom:8px;">
+          <label style="display:block;margin-bottom:3px;font-weight:600;">🔗 URL / ID Google Sheet</label>
+          <input id="emr-in-sheet" type="text" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"
+            style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="display:block;margin-bottom:3px;font-weight:600;">📄 Nama Range</label>
+          <input id="emr-in-range" type="text" value="Sheet1!A1:E100" autocomplete="off"
+            style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:3px;font-weight:600;">🔑 Google API Key</label>
+          <input id="emr-in-apikey" type="text" placeholder="AIza..." autocomplete="off"
+            style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
+        </div>
+      </div>
+
+      <!-- Tanggal filter -->
       <div style="margin-bottom:10px;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">📅 Tanggal (filter)</label>
+        <label style="display:block;margin-bottom:3px;font-weight:600;">📅 Filter Tanggal (opsional)</label>
         <input id="emr-in-date" type="date"
           style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
+        <div style="font-size:11px;color:#6c757d;margin-top:2px;">Kosongkan jika ingin semua data diproses.</div>
       </div>
-      <div style="margin-bottom:10px;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">🔑 Google API Key (override, khusus mode API)</label>
-        <input id="emr-in-apikey" type="text" placeholder="Kosongkan jika sudah di config.js" autocomplete="off"
-          style="width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;box-sizing:border-box;font-size:13px;">
-      </div>
+
+      <!-- Buttons -->
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <button id="emr-btn-start"
           style="flex:1;padding:7px 0;background:#0d6efd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">
-          Mulai Sync
+          ▶️ Mulai Sync
         </button>
         <button id="emr-btn-stop"
           style="flex:1;padding:7px 0;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:13px;">
-          Stop
+          ⏹️ Stop
         </button>
       </div>
+
+      <!-- Log -->
       <div id="emr-sync-log"
         style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px;padding:8px;height:140px;overflow-y:auto;font-family:monospace;font-size:12px;line-height:1.4;">
       </div>
@@ -311,15 +312,88 @@
     panel.appendChild(body);
     document.body.appendChild(panel);
 
+    // Set default tanggal
     const dateInput = qs('#emr-in-date');
     if (dateInput) dateInput.value = getTodayStr();
 
+    // ---- Tab switching ----
+    function switchTab(activeTab) {
+      ['paste', 'file', 'api'].forEach((t) => {
+        const btn = qs(`#emr-tab-${t}`);
+        const content = qs(`#emr-content-${t}`);
+        if (t === activeTab) {
+          btn.style.background = '#0d6efd';
+          btn.style.color = '#fff';
+          content.style.display = 'block';
+        } else {
+          btn.style.background = '#f8f9fa';
+          btn.style.color = '#212529';
+          content.style.display = 'none';
+        }
+      });
+    }
+    qs('#emr-tab-paste').addEventListener('click', () => switchTab('paste'));
+    qs('#emr-tab-file').addEventListener('click', () => switchTab('file'));
+    qs('#emr-tab-api').addEventListener('click', () => switchTab('api'));
+
+    // ---- File upload ----
+    const dropZone = qs('#emr-drop-zone');
+    const fileInput = qs('#emr-file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#0d6efd';
+      dropZone.style.background = '#e7f1ff';
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.borderColor = '#adb5bd';
+      dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#adb5bd';
+      dropZone.style.background = '';
+      if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
+    });
+
+    function handleFileUpload(file) {
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      if (!['.csv', '.tsv', '.txt'].includes(ext)) {
+        log('❌ Format file tidak didukung. Gunakan .csv, .tsv, atau .txt', 'error');
+        return;
+      }
+      log(`📁 Membaca file: ${file.name}...`, 'success');
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          fileRows = parseData(evt.target.result);
+          const cols = fileRows[0].length;
+          qs('#emr-file-info').style.display = 'block';
+          qs('#emr-file-info').innerHTML = `✅ <strong>${file.name}</strong> — ${fileRows.length} baris × ${cols} kolom`;
+          log(`✅ File terbaca: ${fileRows.length} baris, ${cols} kolom. Header: ${fileRows[0].join(', ')}`, 'success');
+        } catch (err) {
+          log('❌ Gagal membaca file: ' + err.message, 'error');
+          fileRows = null;
+        }
+      };
+      reader.onerror = () => log('❌ Gagal membaca file.', 'error');
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    // ---- Buttons ----
     qs('#emr-btn-start').addEventListener('click', () => startSync());
     qs('#emr-btn-stop').addEventListener('click', () => {
       shouldStop = true;
       log('⏹️ Permintaan stop diterima. Menghentikan setelah baris ini...', 'warn');
     });
 
+    // ---- Minimize ----
     let minimized = false;
     qs('#emr-sync-minimize').addEventListener('click', () => {
       minimized = !minimized;
@@ -327,6 +401,7 @@
       qs('#emr-sync-minimize').textContent = minimized ? '+' : '−';
     });
 
+    // ---- Drag header ----
     let dragging = false;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
@@ -372,9 +447,11 @@
     const dateFilter = qs('#emr-in-date').value.trim();
     const apiKeyRaw = qs('#emr-in-apikey').value.trim();
 
-    // Validasi minimal: harus ada URL atau paste data
-    if (!sheetRaw && !pasteRaw) {
-      log('❌ Isi URL Google Sheet ATAU paste data langsung dari Sheet.', 'error');
+    // Tentukan sumber data berdasarkan tab aktif
+    const activeTab = ['paste', 'file', 'api'].find((t) => qs(`#emr-content-${t}`)?.style.display !== 'none') || 'paste';
+
+    if (!pasteRaw && !fileRows && !sheetRaw) {
+      log('❌ Pilih salah satu: paste data, upload file, atau isi URL Sheet.', 'error');
       return;
     }
 
@@ -388,28 +465,32 @@
     try {
       let rows;
 
-      if (pasteRaw) {
-        // ===================== MODE PASTE (tanpa API) =====================
-        log('📋 Mode: Paste langsung dari Sheet (tanpa API Key).');
-        rows = parsePastedData(pasteRaw);
-      } else {
+      if (activeTab === 'file' && fileRows) {
+        // ===================== MODE FILE UPLOAD =====================
+        log('📁 Mode: Upload file CSV/TSV.');
+        rows = fileRows;
+      } else if (activeTab === 'paste' && pasteRaw) {
+        // ===================== MODE PASTE =====================
+        log('📋 Mode: Paste langsung dari Sheet.');
+        rows = parseData(pasteRaw);
+      } else if (activeTab === 'api' && sheetRaw) {
         // ===================== MODE API =====================
         const apiKey = apiKeyRaw || CFG.GOOGLE_API_KEY;
         if (!apiKey || apiKey === 'ISI_API_KEY_DISINI') {
-          log('❌ Mode API membutuhkan Google API Key. Isi di config.js atau input panel. Atau gunakan mode paste data.', 'error');
+          log('❌ Mode API membutuhkan Google API Key. Isi di panel atau gunakan mode Paste/Upload.', 'error');
           return;
         }
         const sheetId = parseSheetId(sheetRaw);
         const range = parseRange(rangeRaw);
         rows = await fetchSheetData(sheetId, range, apiKey);
+      } else {
+        log('❌ Tidak ada data yang valid. Pilih tab dan isi data terlebih dahulu.', 'error');
+        return;
       }
 
-      // Baris pertama diasumsikan header
+      // Baris pertama = header
       const headers = rows[0].map((h) =>
-        String(h || '')
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, '_')
+        String(h || '').trim().toLowerCase().replace(/\s+/g, '_')
       );
       const dataRows = rows.slice(1);
 
@@ -427,13 +508,12 @@
         }
 
         const rawRow = dataRows[i];
-        // Bangun object baris dari header
         const row = {};
         headers.forEach((h, idx) => {
           row[h] = rawRow[idx] !== undefined ? String(rawRow[idx]).trim() : '';
         });
 
-        // --- Filter tanggal (jika user mengisi filter) ---
+        // Filter tanggal
         if (dateFilter) {
           const possibleDateFields = ['tanggal', 'tgl', 'date', 'waktu', 'jam'];
           const dateVal = possibleDateFields
@@ -453,7 +533,6 @@
 
         let anyFieldMissing = false;
 
-        // --- Mapping & pengisian field ---
         for (const [colName, selector] of Object.entries(CFG.MAPPING)) {
           const value = row[colName] || '';
           if (!value) continue;
@@ -473,7 +552,6 @@
           break;
         }
 
-        // --- Submit form ---
         const submitOk = clickSubmit();
         if (!submitOk) {
           failCount++;
@@ -486,16 +564,15 @@
         successCount++;
         log(`✅ Baris ${i + 1} berhasil disubmit.`);
 
-        // --- Delay antar submit (kecuali baris terakhir) ---
         if (i < dataRows.length - 1) {
           await delay(CFG.DELAY_MS || 1500);
         }
       }
 
-      // ----- Ringkasan akhir -----
+      // Ringkasan
       log('');
       log('========================================', 'success');
-      log(`🏁 SELESAI`, 'success');
+      log('🏁 SELESAI', 'success');
       log(`   ✅ Sukses : ${successCount}`, 'success');
       log(`   ⏭️ Skip   : ${skipCount}`, 'warn');
       log(`   ❌ Gagal  : ${failCount}`, 'error');
