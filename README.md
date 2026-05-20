@@ -71,19 +71,38 @@ emr-auto-sync/
 
 ---
 
-## ⚡ Mode Copy-Paste (Tanpa API Key, Tanpa Akses Gmail)
+## ⚡ 3 Cara Memasukkan Data
 
-Dikarenakan **tidak memiliki akses ke akun Gmail** pembuat Google Sheet, solusi utama yang dipilih adalah **mode Copy-Paste**:
+Dikarenakan **role hanya Viewer** (bukan pemilik Sheet), tersedia 3 mode input:
 
-1. Perawat **blok cell** di Google Sheet (termasuk header) → `Ctrl+C`.
-2. Buka e-EMR → klik icon extension / bookmarklet.
-3. **Paste** (`Ctrl+V`) ke kotak input.
+### 📋 Mode Paste (Direkomendasikan)
+1. Buka Google Sheet → **blok cell** (termasuk header) → `Ctrl+C`.
+2. Buka e-EMR → klik extension / bookmarklet.
+3. **Paste** (`Ctrl+V`) ke tab **Paste**.
 4. Klik **Mulai Sync**.
 
-**Keuntungan:**
-- ❌ Tidak perlu Google Cloud Console / API Key.
-- ❌ Google Sheet tidak perlu di-share public ke internet.
-- ✅ Data tetap private, hanya beredar di clipboard browser.
+### 📁 Mode Upload File (Baru! ✨)
+1. Di Google Drive, klik kanan Sheet → **Download** → pilih format **CSV** atau **TSV**.
+2. Buka e-EMR → klik extension / bookmarklet.
+3. Di tab **Upload File**, **drag & drop** file CSV/TSV yang sudah diunduh.
+4. Klik **Mulai Sync**.
+
+> 💡 Cocok jika Anda sudah mengunduh file dari Drive dan ingin menyimpannya sebagai arsip.
+
+### 🔗 Mode API (Opsional, Butuh Setting)
+1. Buat API Key di Google Cloud Console.
+2. Share Sheet sebagai **"Anyone with the link = Viewer"**.
+3. Isi URL Sheet + API Key di tab **API**.
+
+**Perbandingan:**
+
+| | Paste | Upload File | API |
+|---|---|---|---|
+| Butuh API Key | ❌ | ❌ | ✅ |
+| Butuh Sheet public | ❌ | ❌ | ✅ |
+| Butuh koordinasi pemilik | ❌ | ❌ | ✅ |
+| Aman untuk data pasien | ✅ | ✅ | ⚠️ Risikony |
+| Praktis | ✅ Paling cepat | ✅ Drag & drop | ⚠️ Butuh setup |
 
 ---
 
