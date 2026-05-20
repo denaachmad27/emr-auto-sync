@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>e-EMR Auto-Sync</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🔄 e-EMR Auto-Sync</h1>
+    <span class="badge">v1.0</span>
+  </div>
+
+  <!-- Paste Data -->
+  <div class="section">
+    <label for="pasteData">📋 Copy-Paste Data dari Google Sheet</label>
+    <textarea id="pasteData" rows="5" placeholder="Blok cell di Sheet (termasuk header) → Ctrl+C → paste di sini"></textarea>
+    <div class="hint">Tips: Blok header + data → Ctrl+C → Ctrl+V di kotak ini. Tidak perlu API Key!</div>
+  </div>
+
+  <!-- Filter -->
+  <div class="section row">
+    <div class="col">
+      <label for="dateFilter">📅 Filter Tanggal</label>
+      <input type="date" id="dateFilter">
+    </div>
+    <div class="col">
+      <label for="delayMs">⏱️ Jeda (ms)</label>
+      <input type="number" id="delayMs" value="1500" min="500" step="100">
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <details class="section details">
+    <summary>⚙️ Mapping &amp; Konfigurasi</summary>
+    <div class="settings-grid">
+      <div class="field">
+        <label>Selector: tanggal</label>
+        <input type="text" id="sel-tanggal" value="#field-tanggal">
+      </div>
+      <div class="field">
+        <label>Selector: nama_tindakan</label>
+        <input type="text" id="sel-nama_tindakan" value="#field-tindakan">
+      </div>
+      <div class="field">
+        <label>Selector: waktu</label>
+        <input type="text" id="sel-waktu" value="#field-waktu">
+      </div>
+      <div class="field">
+        <label>Selector: keterangan</label>
+        <input type="text" id="sel-keterangan" value="#field-keterangan">
+      </div>
+      <div class="field">
+        <label>Selector: status</label>
+        <input type="text" id="sel-status" value="#field-status">
+      </div>
+      <div class="field">
+        <label>Selector Tombol Submit</label>
+        <input type="text" id="sel-submit" value="#btn-submit">
+      </div>
+    </div>
+    <div class="field checkbox">
+      <input type="checkbox" id="stopOnError">
+      <label for="stopOnError">Berhenti jika ada field tidak ditemukan</label>
+    </div>
+  </details>
+
+  <!-- Buttons -->
+  <div class="section actions">
+    <button id="btnSave" class="btn btn-secondary">💾 Simpan Config</button>
+    <button id="btnSync" class="btn btn-primary">▶️ Mulai Sync</button>
+  </div>
+
+  <!-- Log -->
+  <div class="section">
+    <label>📋 Status / Log</label>
+    <div id="logArea" class="log"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "_note": "Format response Google Sheets API v4 (values array). Bisa dipakai untuk mocking/testing tanpa hit API.",
+  "range": "Sheet1!A1:E16",
+  "majorDimension": "ROWS",
+  "values": [
+    ["tanggal", "nama_tindakan", "waktu", "keterangan", "status"],
+    ["2026-05-20", "Observasi pasien ruang Melati", "08:00 - 10:00", "Pasien stabil & kooperatif", "Selesai"],
+    ["2026-05-20", "Pemberian obat rutin pagi", "08:30", "Paracetamol 500mg & vitamin C", "Selesai"],
+    ["2026-05-20", "Pemeriksaan tanda vital", "09:00", "TD: 120/80 | HR: 78 | RR: 18 | SpO2: 98%", "Selesai"],
+    ["2026-05-20", "Ganti perawatan luka post-op", "09:30", "Luka bersih tidak ada tanda infeksi", "Selesai"],
+    ["2026-05-20", "Konsultasi dokter spesialis", "10:00", "Dr. Andi - evaluasi perkembangan pasien", "Selesai"],
+    ["2026-05-20", "Pemasangan infus pasien baru", "10:30", "Pasien nyeri abdomen akut", "Selesai"],
+    ["2026-05-20", "Pendidikan kesehatan & diet", "11:00", "Edukasi diet rendah garam ke keluarga pasien", "Selesai"],
+    ["2026-05-20", "Persiapan pasien rujukan rontgen", "13:00", "Mobilized ke radiologi dengan kursi roda", "Selesai"],
+    ["2026-05-20", "Pemberian obat sore", "14:00", "Antibiotik IV sesuai instruksi dokter", "Selesai"],
+    ["2026-05-20", "Observasi pasien ruang Mawar", "14:30", "Pasien mulai panas 37.8C", "Pending"],
+    ["2026-05-20", "Pengecekan chart & dokumentasi", "15:00", "Update SOAP & tanda tangan perawat", "Selesai"],
+    ["2026-05-20", "Serah terima shift sore", "15:30", "Handover ke tim malam lengkap dengan catatan", "Selesai"],
+    ["2026-05-21", "Observasi pasien ICU", "07:00", "Pasien post-op hari ke-2 perlu monitor ketat", "Pending"],
+    ["2026-05-21", "Pembersihan & sterilisasi alat", "07:30", "Alat infus & spuit bebas kontaminasi", "Selesai"],
+    ["2026-05-21", "Pengambilan sampel darah", "08:00", "Lab: darah rutin & elektrolit puasa", "Selesai"]
+  ]
+}

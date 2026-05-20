@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "e-EMR Auto-Sync",
+  "version": "1.0.0",
+  "description": "Auto-sync jobdesk harian dari Google Sheet ke sistem e-EMR via copy-paste atau API",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "🔄 e-EMR Auto-Sync"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

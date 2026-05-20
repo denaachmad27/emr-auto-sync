@@ -1,0 +1,46 @@
+================================================================================
+CONTOH DATA COPY-PASTE DARI GOOGLE SHEET
+================================================================================
+
+Cara menggunakannya:
+1. Buka Google Sheet Anda.
+2. Blok / seleksi cell yang ingin di-sync (termasuk header baris pertama).
+3. Tekan Ctrl+C (Copy).
+4. Buka panel bookmarklet e-EMR Auto-Sync.
+5. Klik kotak "Paste Data Langsung dari Sheet".
+6. Tekan Ctrl+V (Paste).
+7. Klik "Mulai Sync".
+
+================================================================================
+CONTOH DATA (tinggal copy blok di bawah ini, termasuk baris header):
+================================================================================
+
+tanggal	nama_tindakan	waktu	keterangan	status
+2026-05-20	Observasi pasien ruang Melati	08:00 - 10:00	Pasien stabil & kooperatif	Selesai
+2026-05-20	Pemberian obat rutin pagi	08:30	Paracetamol 500mg & vitamin C	Selesai
+2026-05-20	Pemeriksaan tanda vital	09:00	TD: 120/80 | HR: 78 | RR: 18 | SpO2: 98%	Selesai
+2026-05-20	Ganti perawatan luka post-op	09:30	Luka bersih tidak ada tanda infeksi	Selesai
+2026-05-20	Konsultasi dokter spesialis	10:00	Dr. Andi - evaluasi perkembangan pasien	Selesai
+2026-05-20	Pemasangan infus pasien baru	10:30	Pasien nyeri abdomen akut	Selesai
+2026-05-20	Pendidikan kesehatan & diet	11:00	Edukasi diet rendah garam ke keluarga pasien	Selesai
+2026-05-20	Persiapan pasien rujukan rontgen	13:00	Mobilized ke radiologi dengan kursi roda	Selesai
+2026-05-20	Pemberian obat sore	14:00	Antibiotik IV sesuai instruksi dokter	Selesai
+2026-05-20	Observasi pasien ruang Mawar	14:30	Pasien mulai panas 37.8C	Pending
+2026-05-20	Pengecekan chart & dokumentasi	15:00	Update SOAP & tanda tangan perawat	Selesai
+2026-05-20	Serah terima shift sore	15:30	Handover ke tim malam lengkap dengan catatan	Selesai
+2026-05-21	Observasi pasien ICU	07:00	Pasien post-op hari ke-2 perlu monitor ketat	Pending
+2026-05-21	Pembersihan & sterilisasi alat	07:30	Alat infus & spuit bebas kontaminasi	Selesai
+2026-05-21	Pengambilan sampel darah	08:00	Lab: darah rutin & elektrolit puasa	Selesai
+
+================================================================================
+CATATAN PENTING:
+================================================================================
+
+- Pastikan baris PERTAMA adalah HEADER (nama kolom).
+- Nama kolom harus SAMA PERSIS dengan key di config.js (tidak peduli
+  huruf besar/kecil, spasi otomatis dianggap underscore).
+- Google Sheet secara default menyalin data dalam format TAB-separated (TSV).
+  Bookmarklet otomatis mendeteksi tab atau koma sebagai pemisah.
+- Jangan khawatir tentang API Key! Mode paste ini TIDAK membutuhkan
+  API Key sama sekali.
+================================================================================

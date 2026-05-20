@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[TEST] Dummy Form e-EMR</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      padding: 24px;
+      color: #111827;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #374151;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #374151;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 14px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 3px rgba(13,110,253,0.12);
+    }
+    textarea { resize: vertical; min-height: 64px; }
+    button#btn-submit {
+      background: #0d6efd;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      width: 100%;
+    }
+    button#btn-submit:hover { background: #0b5ed7; }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .log-table th, .log-table td {
+      border: 1px solid #e5e7eb;
+      padding: 10px;
+      text-align: left;
+    }
+    .log-table th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    .log-table tr:nth-child(even) { background: #f9fafb; }
+    .empty-log {
+      color: #9ca3af;
+      text-align: center;
+      padding: 24px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-new { background: #d1fae5; color: #065f46; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏥 Dummy Form e-EMR</h1>
+    <p class="subtitle">
+      Halaman ini mensimulasikan sistem e-EMR. Buka Console browser, paste
+      <strong>config.js</strong> lalu <strong>bookmarklet.dev.js</strong>,
+      lalu jalankan bookmarklet-nya untuk uji coba sinkronisasi.
+    </p>
+
+    <div class="grid">
+      <!-- FORM -->
+      <div class="card">
+        <h2>📝 Form Input Jobdesk</h2>
+        <form id="dummy-form" onsubmit="event.preventDefault(); handleSubmit();">
+          <label for="field-tanggal">Tanggal</label>
+          <input type="date" id="field-tanggal" name="tanggal">
+
+          <label for="field-tindakan">Nama Tindakan</label>
+          <input type="text" id="field-tindakan" name="nama_tindakan" placeholder="Contoh: Observasi pasien ruang Melati">
+
+          <label for="field-waktu">Waktu</label>
+          <input type="text" id="field-waktu" name="waktu" placeholder="Contoh: 08:00 - 10:00">
+
+          <label for="field-keterangan">Keterangan</label>
+          <textarea id="field-keterangan" name="keterangan" placeholder="Catatan tambahan..."></textarea>
+
+          <label for="field-status">Status</label>
+          <select id="field-status" name="status">
+            <option value="">-- Pilih Status --</option>
+            <option value="Selesai">Selesai</option>
+            <option value="Pending">Pending</option>
+            <option value="Ditunda">Ditunda</option>
+            <option value="Emergency">Emergency</option>
+          </select>
+
+          <button type="submit" id="btn-submit">Simpan ke e-EMR</button>
+        </form>
+      </div>
+
+      <!-- LOG SUBMIT -->
+      <div class="card">
+        <h2>📋 Riwayat Submit (Simulasi)</h2>
+        <div id="submit-log">
+          <div class="empty-log">Belum ada data yang disubmit.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let submitCounter = 0;
+
+    function handleSubmit() {
+      submitCounter++;
+      const tanggal       = document.getElementById('field-tanggal').value;
+      const nama_tindakan = document.getElementById('field-tindakan').value;
+      const waktu         = document.getElementById('field-waktu').value;
+      const keterangan    = document.getElementById('field-keterangan').value;
+      const status        = document.getElementById('field-status').value;
+
+      // Render ke log area
+      const logArea = document.getElementById('submit-log');
+      if (submitCounter === 1) logArea.innerHTML = '';
+
+      const table = logArea.querySelector('table') || document.createElement('table');
+      table.className = 'log-table';
+
+      if (submitCounter === 1) {
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tanggal</th>
+              <th>Tindakan</th>
+              <th>Waktu</th>
+              <th>Keterangan</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        logArea.appendChild(table);
+      }
+
+      const tbody = table.querySelector('tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="badge badge-new">#${submitCounter}</span></td>
+        <td>${escapeHtml(tanggal || '-')}</td>
+        <td>${escapeHtml(nama_tindakan || '-')}</td>
+        <td>${escapeHtml(waktu || '-')}</td>
+        <td>${escapeHtml(keterangan || '-')}</td>
+        <td>${escapeHtml(status || '-')}</td>
+      `;
+      tbody.appendChild(tr);
+
+      // Scroll ke bawah
+      logArea.scrollTop = logArea.scrollHeight;
+
+      // Reset form agar siap menerima input berikutnya (mirip e-EMR asli)
+      document.getElementById('dummy-form').reset();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Opsional: log ke console agar IT bisa lihat event
+    const btn = document.getElementById('btn-submit');
+    btn.addEventListener('click', () => {
+      console.log('[Dummy e-EMR] Tombol submit diklik pada', new Date().toLocaleString('id-ID'));
+    });
+  </script>
+</body>
+</html>
