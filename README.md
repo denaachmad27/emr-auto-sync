@@ -82,12 +82,13 @@ Dikarenakan **role hanya Viewer** (bukan pemilik Sheet), tersedia 3 mode input:
 4. Klik **Mulai Sync**.
 
 ### 📁 Mode Upload File (Baru! ✨)
-1. Di Google Drive, klik kanan Sheet → **Download** → pilih format **CSV** atau **TSV**.
+1. Di Google Drive, klik kanan Sheet → **Download** → pilih format **XLSX**, **CSV**, atau **TSV**.
 2. Buka e-EMR → klik extension / bookmarklet.
-3. Di tab **Upload File**, **drag & drop** file CSV/TSV yang sudah diunduh.
+3. Di tab **Upload File**, **drag & drop** file yang sudah diunduh.
 4. Klik **Mulai Sync**.
 
-> 💡 Cocok jika Anda sudah mengunduh file dari Drive dan ingin menyimpannya sebagai arsip.
+> 💡 **Format yang didukung: .xlsx, .xls, .csv, .tsv, .txt**
+> Cocok jika Anda sudah mengunduh file dari Drive dan ingin menyimpannya sebagai arsip.
 
 ### 🔗 Mode API (Opsional, Butuh Setting)
 1. Buat API Key di Google Cloud Console.
@@ -101,6 +102,7 @@ Dikarenakan **role hanya Viewer** (bukan pemilik Sheet), tersedia 3 mode input:
 | Butuh API Key | ❌ | ❌ | ✅ |
 | Butuh Sheet public | ❌ | ❌ | ✅ |
 | Butuh koordinasi pemilik | ❌ | ❌ | ✅ |
+| Format didukung | TSV, CSV | XLSX, XLS, CSV, TSV, TXT | Google Sheets API |
 | Aman untuk data pasien | ✅ | ✅ | ⚠️ Risikony |
 | Praktis | ✅ Paling cepat | ✅ Drag & drop | ⚠️ Butuh setup |
 

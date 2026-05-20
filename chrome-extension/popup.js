@@ -1,6 +1,6 @@
 /**
- * popup.js — UI & Controller untuk e-EMR Auto-Sync Extension v1.1
- * Mendukung: Paste manual, Upload file CSV/TSV, dan Drag & Drop.
+ * popup.js — UI & Controller untuk e-EMR Auto-Sync Extension v1.2
+ * Mendukung: Paste manual, Upload file CSV/TSV/XLSX/XLS, dan Drag & Drop.
  */
 
 const DEFAULT_CONFIG = {
@@ -127,34 +127,70 @@ function setupFileUpload() {
 }
 
 function handleFile(file) {
-  const validExtensions = ['.csv', '.tsv', '.txt'];
   const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-  if (!validExtensions.includes(ext)) {
-    logPopup('❌ Format file tidak didukung. Gunakan .csv, .tsv, atau .txt', 'err');
+  const isExcel = ['.xlsx', '.xls'].includes(ext);
+  const isText = ['.csv', '.tsv', '.txt'].includes(ext);
+
+  if (!isExcel && !isText) {
+    logPopup('❌ Format file tidak didukung. Gunakan .xlsx, .xls, .csv, .tsv, atau .txt', 'err');
     return;
   }
 
   logPopup(`📁 Membaca file: ${file.name}...`, 'ok');
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      parsedRows = parseData(e.target.result);
-      if (!parsedRows || parsedRows.length < 2) {
-        throw new Error('File kosong atau tidak memiliki header + data.');
+  if (isExcel) {
+    // ---------- Mode XLSX/XLS: baca sebagai ArrayBuffer, parse dengan SheetJS ----------
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        if (typeof XLSX === 'undefined') {
+          throw new Error('Library SheetJS (XLSX) tidak tersedia. Pastikan file xlsx.full.min.js sudah di-load.');
+        }
+        const workbook = XLSX.read(e.target.result, { type: 'array' });
+        // Ambil sheet pertama
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        // Konversi ke array of arrays
+        const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        // Bersihkan: trim string, hapus baris kosong di akhir
+        parsedRows = rawData.map(row => row.map(cell => String(cell).trim()));
+        // Hapus baris kosong trailing
+        while (parsedRows.length > 0 && parsedRows[parsedRows.length - 1].every(c => c === '')) {
+          parsedRows.pop();
+        }
+        if (!parsedRows || parsedRows.length < 2) {
+          throw new Error('File Excel kosong atau tidak memiliki header + data.');
+        }
+        const cols = parsedRows[0].length;
+        showFileInfo(file.name, parsedRows.length, cols);
+        logPopup(`✅ File Excel terbaca: ${parsedRows.length} baris, ${cols} kolom. Sheet: "${sheetName}". Header: ${parsedRows[0].join(', ')}`, 'ok');
+      } catch (err) {
+        logPopup('❌ Gagal membaca file Excel: ' + err.message, 'err');
+        parsedRows = null;
       }
-      const cols = parsedRows[0].length;
-      showFileInfo(file.name, parsedRows.length, cols);
-      logPopup(`✅ File terbaca: ${parsedRows.length} baris, ${cols} kolom. Header: ${parsedRows[0].join(', ')}`, 'ok');
-    } catch (err) {
-      logPopup('❌ Gagal membaca file: ' + err.message, 'err');
-      parsedRows = null;
-    }
-  };
-  reader.onerror = () => {
-    logPopup('❌ Gagal membaca file.', 'err');
-  };
-  reader.readAsText(file, 'UTF-8');
+    };
+    reader.onerror = () => logPopup('❌ Gagal membaca file.', 'err');
+    reader.readAsArrayBuffer(file);
+  } else {
+    // ---------- Mode CSV/TSV/TXT: baca sebagai teks ----------
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        parsedRows = parseData(e.target.result);
+        if (!parsedRows || parsedRows.length < 2) {
+          throw new Error('File kosong atau tidak memiliki header + data.');
+        }
+        const cols = parsedRows[0].length;
+        showFileInfo(file.name, parsedRows.length, cols);
+        logPopup(`✅ File terbaca: ${parsedRows.length} baris, ${cols} kolom. Header: ${parsedRows[0].join(', ')}`, 'ok');
+      } catch (err) {
+        logPopup('❌ Gagal membaca file: ' + err.message, 'err');
+        parsedRows = null;
+      }
+    };
+    reader.onerror = () => logPopup('❌ Gagal membaca file.', 'err');
+    reader.readAsText(file, 'UTF-8');
+  }
 }
 
 // ======================= Config IO =======================

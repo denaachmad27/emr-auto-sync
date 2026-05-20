@@ -9,16 +9,17 @@
  * 3. Copy-paste seluruh kode ini ke Console browser, lalu tekan Enter.
  * 4. Panel "e-EMR Auto-Sync" akan muncul di pojok kanan atas.
  * 5. Pilih salah satu mode input:
- *    a) Paste      : copy-paste data langsung dari Sheet
- *    b) Upload File : upload file CSV/TSV yang diunduh dari Drive
+ *    a) Paste       : copy-paste data langsung dari Sheet
+ *    b) Upload File : upload file CSV/TSV/XLSX/XLS yang diunduh dari Drive
  *    c) API (opsional): isi URL Google Sheet + API Key
  * 6. Klik "Mulai Sync".
  *
  * Catatan teknis untuk tim IT RS:
- * - Kode ini murni JavaScript ES6+, tanpa library eksternal.
- * - Mode Paste  : Parse TSV/CSV hasil copy-paste langsung dari Google Sheet.
- * - Mode Upload : Parse file CSV/TSV yang diunduh dari Google Drive.
- * - Mode API    : Fetch API → Google Sheets API v4 (read-only).
+ * - Kode ini murni JavaScript ES6+.
+ * - Mode Paste : Parse TSV/CSV hasil copy-paste langsung dari Google Sheet.
+ * - Mode Upload: Parse file CSV/TSV/XLSX/XLS. Untuk XLSX, library SheetJS
+ *   di-load dari CDN secara otomatis saat diperlukan.
+ * - Mode API   : Fetch API → Google Sheets API v4 (read-only).
  * - Mengisi form dengan memicu event 'input', 'change', 'blur' agar
  *   framework frontend (React/Vue/Angular) di e-EMR ikut mendeteksi.
  * ============================================================================
@@ -57,10 +58,7 @@
 
   function getTodayStr() {
     const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function delay(ms) {
@@ -115,6 +113,52 @@
       }
       return line.split('\t').map((s) => s.trim());
     });
+  }
+
+  /**
+   * Load SheetJS (xlsx.js) dari CDN jika belum ada.
+   * Mengembalikan Promise yang resolve ke true jika library berhasil di-load.
+   */
+  function loadSheetJS() {
+    return new Promise((resolve, reject) => {
+      if (typeof XLSX !== 'undefined') {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+      script.onload = () => {
+        if (typeof XLSX !== 'undefined') {
+          resolve(true);
+        } else {
+          reject(new Error('SheetJS gagal di-load.'));
+        }
+      };
+      script.onerror = () => reject(new Error('Gagal mengunduh library SheetJS. Pastikan ada koneksi internet.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Parse file Excel (XLSX/XLS) menggunakan SheetJS.
+   * @param {ArrayBuffer} buffer - Isi file sebagai ArrayBuffer
+   * @returns {Array[]} Array of arrays
+   */
+  function parseExcelBuffer(buffer) {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('Library SheetJS belum tersedia. Coba lagi dalam beberapa saat.');
+    }
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+    // Bersihkan: trim string, hapus baris kosong trailing
+    const rows = rawData.map((row) => row.map((cell) => String(cell).trim()));
+    while (rows.length > 0 && rows[rows.length - 1].every((c) => c === '')) {
+      rows.pop();
+    }
+    return rows;
   }
 
   function log(msg, type) {
@@ -240,8 +284,8 @@
       <!-- Tab buttons -->
       <div style="display:flex;gap:4px;margin-bottom:8px;">
         <button id="emr-tab-paste" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#0d6efd;color:#fff;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">📋 Paste</button>
-        <button id="emr-tab-file" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">📁 Upload File</button>
-        <button id="emr-tab-api" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">🔗 API (opsional)</button>
+        <button id="emr-tab-file" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">📁 Upload</button>
+        <button id="emr-tab-api" style="flex:1;padding:5px 0;border:1px solid #ced4da;background:#f8f9fa;color:#212529;border-radius:5px 5px 0 0;cursor:pointer;font-size:12px;font-weight:600;">🔗 API</button>
       </div>
 
       <!-- Tab: Paste -->
@@ -254,11 +298,11 @@
 
       <!-- Tab: Upload File -->
       <div id="emr-content-file" style="margin-bottom:10px;display:none;">
-        <label style="display:block;margin-bottom:3px;font-weight:600;">📁 Upload File CSV / TSV</label>
+        <label style="display:block;margin-bottom:3px;font-weight:600;">📁 Upload File (CSV / TSV / XLSX / XLS)</label>
         <div id="emr-drop-zone" style="border:2px dashed #adb5bd;border-radius:8px;padding:18px 10px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;">
           <div style="font-size:28px;margin-bottom:4px;">📁</div>
-          <div style="font-size:12px;color:#6c757d;line-height:1.4;">Drag &amp; drop file CSV/TSV di sini<br>atau klik untuk pilih file</div>
-          <input type="file" id="emr-file-input" accept=".csv,.tsv,.txt" style="display:none;">
+          <div style="font-size:12px;color:#6c757d;line-height:1.4;">Drag &amp; drop file CSV/TSV/XLSX/XLS di sini<br>atau klik untuk pilih file</div>
+          <input type="file" id="emr-file-input" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none;">
         </div>
         <div id="emr-file-info" style="display:none;margin-top:6px;padding:6px 10px;background:#d1fae5;border:1px solid #34d399;border-radius:5px;font-size:12px;color:#065f46;"></div>
       </div>
@@ -336,7 +380,7 @@
     qs('#emr-tab-file').addEventListener('click', () => switchTab('file'));
     qs('#emr-tab-api').addEventListener('click', () => switchTab('api'));
 
-    // ---- File upload ----
+    // ---- File upload & drag-drop ----
     const dropZone = qs('#emr-drop-zone');
     const fileInput = qs('#emr-file-input');
 
@@ -361,30 +405,6 @@
     fileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
     });
-
-    function handleFileUpload(file) {
-      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-      if (!['.csv', '.tsv', '.txt'].includes(ext)) {
-        log('❌ Format file tidak didukung. Gunakan .csv, .tsv, atau .txt', 'error');
-        return;
-      }
-      log(`📁 Membaca file: ${file.name}...`, 'success');
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          fileRows = parseData(evt.target.result);
-          const cols = fileRows[0].length;
-          qs('#emr-file-info').style.display = 'block';
-          qs('#emr-file-info').innerHTML = `✅ <strong>${file.name}</strong> — ${fileRows.length} baris × ${cols} kolom`;
-          log(`✅ File terbaca: ${fileRows.length} baris, ${cols} kolom. Header: ${fileRows[0].join(', ')}`, 'success');
-        } catch (err) {
-          log('❌ Gagal membaca file: ' + err.message, 'error');
-          fileRows = null;
-        }
-      };
-      reader.onerror = () => log('❌ Gagal membaca file.', 'error');
-      reader.readAsText(file, 'UTF-8');
-    }
 
     // ---- Buttons ----
     qs('#emr-btn-start').addEventListener('click', () => startSync());
@@ -433,6 +453,71 @@
     };
   }
 
+  // ========================== FILE UPLOAD HANDLER ==========================
+
+  async function handleFileUpload(file) {
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const isExcel = ['.xlsx', '.xls'].includes(ext);
+    const isText = ['.csv', '.tsv', '.txt'].includes(ext);
+
+    if (!isExcel && !isText) {
+      log('❌ Format file tidak didukung. Gunakan .xlsx, .xls, .csv, .tsv, atau .txt', 'error');
+      return;
+    }
+
+    log(`📁 Membaca file: ${file.name}...`, 'success');
+
+    if (isExcel) {
+      // ===== XLSX/XLS: Load SheetJS jika belum ada, lalu parse =====
+      try {
+        log('⏳ Memuat library SheetJS untuk file Excel...', 'info');
+        await loadSheetJS();
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            fileRows = parseExcelBuffer(e.target.result);
+            if (!fileRows || fileRows.length < 2) {
+              throw new Error('File Excel kosong atau tidak memiliki header + data.');
+            }
+            const cols = fileRows[0].length;
+            qs('#emr-file-info').style.display = 'block';
+            qs('#emr-file-info').innerHTML = `✅ <strong>${file.name}</strong> — ${fileRows.length} baris × ${cols} kolom`;
+            log(`✅ File Excel terbaca: ${fileRows.length} baris, ${cols} kolom. Header: ${fileRows[0].join(', ')}`, 'success');
+          } catch (err) {
+            log('❌ Gagal membaca file Excel: ' + err.message, 'error');
+            fileRows = null;
+          }
+        };
+        reader.onerror = () => log('❌ Gagal membaca file.', 'error');
+        reader.readAsArrayBuffer(file);
+      } catch (err) {
+        log('❌ ' + err.message, 'error');
+        fileRows = null;
+      }
+    } else {
+      // ===== CSV/TSV/TXT: Parse sebagai teks =====
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          fileRows = parseData(e.target.result);
+          if (!fileRows || fileRows.length < 2) {
+            throw new Error('File kosong atau tidak memiliki header + data.');
+          }
+          const cols = fileRows[0].length;
+          qs('#emr-file-info').style.display = 'block';
+          qs('#emr-file-info').innerHTML = `✅ <strong>${file.name}</strong> — ${fileRows.length} baris × ${cols} kolom`;
+          log(`✅ File terbaca: ${fileRows.length} baris, ${cols} kolom. Header: ${fileRows[0].join(', ')}`, 'success');
+        } catch (err) {
+          log('❌ Gagal membaca file: ' + err.message, 'error');
+          fileRows = null;
+        }
+      };
+      reader.onerror = () => log('❌ Gagal membaca file.', 'error');
+      reader.readAsText(file, 'UTF-8');
+    }
+  }
+
   // ========================== LOGIKA UTAMA SYNC ==========================
 
   async function startSync() {
@@ -466,15 +551,12 @@
       let rows;
 
       if (activeTab === 'file' && fileRows) {
-        // ===================== MODE FILE UPLOAD =====================
-        log('📁 Mode: Upload file CSV/TSV.');
+        log('📁 Mode: Upload file.', 'success');
         rows = fileRows;
       } else if (activeTab === 'paste' && pasteRaw) {
-        // ===================== MODE PASTE =====================
         log('📋 Mode: Paste langsung dari Sheet.');
         rows = parseData(pasteRaw);
       } else if (activeTab === 'api' && sheetRaw) {
-        // ===================== MODE API =====================
         const apiKey = apiKeyRaw || CFG.GOOGLE_API_KEY;
         if (!apiKey || apiKey === 'ISI_API_KEY_DISINI') {
           log('❌ Mode API membutuhkan Google API Key. Isi di panel atau gunakan mode Paste/Upload.', 'error');
@@ -488,7 +570,7 @@
         return;
       }
 
-      // Baris pertama = header
+      // Parse header
       const headers = rows[0].map((h) =>
         String(h || '').trim().toLowerCase().replace(/\s+/g, '_')
       );
@@ -569,7 +651,6 @@
         }
       }
 
-      // Ringkasan
       log('');
       log('========================================', 'success');
       log('🏁 SELESAI', 'success');

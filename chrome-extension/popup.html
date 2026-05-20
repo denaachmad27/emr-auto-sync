@@ -29,8 +29,8 @@
     <div id="tab-file" class="tab-content">
       <div id="dropZone" class="drop-zone">
         <div class="drop-zone-icon">📁</div>
-        <div class="drop-zone-text">Drag & drop file CSV / TSV<br>atau klik untuk pilih file</div>
-        <input type="file" id="fileInput" accept=".csv,.tsv,.txt" hidden>
+        <div class="drop-zone-text">Drag & drop file CSV / TSV / XLSX / XLS<br>atau klik untuk pilih file</div>
+        <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.xlsx,.xls" hidden>
       </div>
       <div id="fileInfo" class="file-info" style="display:none;"></div>
     </div>
@@ -95,6 +95,7 @@
     <div id="logArea" class="log"></div>
   </div>
 
+  <script src="lib/xlsx.full.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
